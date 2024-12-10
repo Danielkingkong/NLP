@@ -41,7 +41,7 @@ class DisasterDataset(Dataset):
         return item
 
 
-def train_model(model, train_loader, val_loader, num_epochs=3):
+def train_model(model, train_loader, val_loader, num_epochs=2):
     optimizer = AdamW(model.parameters(), lr=2e-5)
     scheduler = get_scheduler(
         "linear",
