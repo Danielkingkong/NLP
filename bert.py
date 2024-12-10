@@ -13,21 +13,13 @@ from sklearn.metrics import accuracy_score
 
 # =============================================================
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
 # =============================================================
 
-def tokenize_texts(texts, tokenizer, max_length=128):
-    return tokenizer(
-        texts,
-        padding=True,
-        truncation=True,
-        max_length=max_length,
-        return_tensors="pt"
-    )
 
 class DisasterDataset(Dataset):
-    def __init__(self, texts, labels, tokenizer, max_length=128):
+    def __init__(self, texts, labels, tokenizer, max_length=32):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
@@ -39,21 +31,27 @@ class DisasterDataset(Dataset):
     def __getitem__(self, idx):
         encoding = self.tokenizer(
             self.texts[idx],
-            padding='max_length',
+            padding="max_length",
             truncation=True,
             max_length=self.max_length,
-            return_tensors="pt"
+            return_tensors="pt",
         )
         item = {key: val.squeeze(0) for key, val in encoding.items()}
-        item['labels'] = torch.tensor(self.labels[idx], dtype=torch.long)
+        item["labels"] = torch.tensor(self.labels[idx], dtype=torch.long)
         return item
+
 
 def train_model(model, train_loader, val_loader, num_epochs=3):
     optimizer = AdamW(model.parameters(), lr=2e-5)
-    scheduler = get_scheduler("linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=len(train_loader) * num_epochs)
+    scheduler = get_scheduler(
+        "linear",
+        optimizer=optimizer,
+        num_warmup_steps=0,
+        num_training_steps=len(train_loader) * num_epochs,
+    )
 
     for epoch in range(num_epochs):
-        
+
         model.train()
         train_loss = 0
         all_preds = []
@@ -62,9 +60,9 @@ def train_model(model, train_loader, val_loader, num_epochs=3):
         for batch in train_loader:
             optimizer.zero_grad()
             outputs = model(
-                input_ids=batch['input_ids'].to(model.device),
-                attention_mask=batch['attention_mask'].to(model.device),
-                labels=batch['labels'].to(model.device)
+                input_ids=batch["input_ids"].to(model.device),
+                attention_mask=batch["attention_mask"].to(model.device),
+                labels=batch["labels"].to(model.device),
             )
             loss = outputs.loss
             train_loss += loss.item()
@@ -75,13 +73,16 @@ def train_model(model, train_loader, val_loader, num_epochs=3):
             logits = outputs.logits
             preds = torch.argmax(logits, dim=1)
             all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(batch['labels'].cpu().numpy())
+            all_labels.extend(batch["labels"].cpu().numpy())
 
         # エポックごとの損失と精度を表示
         train_acc = accuracy_score(all_labels, all_preds)
-        print(f"Epoch {epoch+1}/{num_epochs}, Loss: {train_loss:.4f}, Accuracy: {train_acc:.4f}")
+        print(
+            f"Epoch {epoch+1}/{num_epochs}, Loss: {train_loss:.4f}, Accuracy: {train_acc:.4f}"
+        )
 
         validate_model(model, val_loader)
+
 
 def validate_model(model, val_loader):
     model.eval()
@@ -92,9 +93,9 @@ def validate_model(model, val_loader):
     with torch.no_grad():
         for batch in val_loader:
             outputs = model(
-                input_ids=batch['input_ids'].to(model.device),
-                attention_mask=batch['attention_mask'].to(model.device),
-                labels=batch['labels'].to(model.device)
+                input_ids=batch["input_ids"].to(model.device),
+                attention_mask=batch["attention_mask"].to(model.device),
+                labels=batch["labels"].to(model.device),
             )
             loss = outputs.loss
             val_loss += loss.item()
@@ -102,20 +103,22 @@ def validate_model(model, val_loader):
             logits = outputs.logits
             preds = torch.argmax(logits, dim=1)
             all_preds.extend(preds.cpu().numpy())
-            all_labels.extend(batch['labels'].cpu().numpy())
+            all_labels.extend(batch["labels"].cpu().numpy())
 
     val_acc = accuracy_score(all_labels, all_preds)
     print(f"Validation Loss: {val_loss:.4f}, Accuracy: {val_acc:.4f}")
 
+
 # =============================================================
 
 # import train data
-tarin_data = pd.read_csv('train.csv')
-texts = tarin_data['text'].tolist()
-labels = tarin_data['target'].tolist()
+tarin_data = pd.read_csv("train.csv")
+texts = tarin_data["text"].tolist()
+labels = tarin_data["target"].tolist()
+
 # import test data
-test_data = pd.read_csv('test.csv')
-test_texts = test_data['text'].tolist()
+test_data = pd.read_csv("test.csv")
+test_texts = test_data["text"].tolist()
 
 # split data (80%: train, 20%: validation)
 train_texts, val_texts, train_labels, val_labels = train_test_split(
@@ -125,18 +128,16 @@ train_texts, val_texts, train_labels, val_labels = train_test_split(
 # prerare dataset
 train_dataset = DisasterDataset(train_texts, train_labels, tokenizer)
 val_dataset = DisasterDataset(val_texts, val_labels, tokenizer)
-test_dataset = DisasterDataset(test_texts, [0]*len(test_texts), tokenizer)
+test_dataset = DisasterDataset(test_texts, [0] * len(test_texts), tokenizer)
 
 # craete data loader
-train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=16)
-test_loader = DataLoader(test_dataset, batch_size=16)
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=32)
+test_loader = DataLoader(test_dataset, batch_size=32)
 
-model = BertForSequenceClassification.from_pretrained('bert-base-uncased', num_labels=2)
-train_model(model, train_loader, val_loader, num_epochs=3)
+model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=3)
+train_model(model, train_loader, val_loader, num_epochs=2)
 
-# optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-8)
-# test_encodings = tokenize_texts(test_texts, tokenizer)
 
 # predict
 model.eval()
@@ -144,13 +145,13 @@ predictions = []
 with torch.no_grad():
     for batch in test_loader:
         outputs = model(
-            input_ids=batch['input_ids'].to(model.device),
-            attention_mask=batch['attention_mask'].to(model.device)
+            input_ids=batch["input_ids"].to(model.device),
+            attention_mask=batch["attention_mask"].to(model.device),
         )
         logits = outputs.logits
         preds = torch.argmax(logits, dim=1)
         predictions.extend(preds.cpu().numpy())
 
 # create submission file
-submission = pd.DataFrame({'id': test_data['id'], 'target': predictions})
-submission.to_csv('submission.csv', index=False)
+submission = pd.DataFrame({"id": test_data["id"], "target": predictions})
+submission.to_csv("submission.csv", index=False)
