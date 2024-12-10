@@ -19,7 +19,7 @@ tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
 
 class DisasterDataset(Dataset):
-    def __init__(self, texts, labels, tokenizer, max_length=32):
+    def __init__(self, texts, labels, tokenizer, max_length=64):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
@@ -131,11 +131,11 @@ val_dataset = DisasterDataset(val_texts, val_labels, tokenizer)
 test_dataset = DisasterDataset(test_texts, [0] * len(test_texts), tokenizer)
 
 # craete data loader
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-val_loader = DataLoader(val_dataset, batch_size=32)
-test_loader = DataLoader(test_dataset, batch_size=32)
+train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=16)
+test_loader = DataLoader(test_dataset, batch_size=16)
 
-model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=3)
+model = BertForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=2)
 train_model(model, train_loader, val_loader, num_epochs=2)
 
 
